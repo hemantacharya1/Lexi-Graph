@@ -2,13 +2,9 @@ import redis
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from database import SessionLocal, engine
+from database import SessionLocal, engine,Base, get_db
 from config import settings
 
-# This command creates the database tables based on your models
-# It's good practice to run this manually or with a migration tool like Alembic,
-# but for our initial setup, we'll let the app create them on startup.
-# models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Lexi-Graph API",
@@ -16,17 +12,11 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# --- Dependency ---
-def get_db():
-    """
-    Dependency to get a database session for a request.
-    Ensures the session is always closed after the request.
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@app.on_event("startup")
+def startup():
+    from models import account, user, case, document
+    Base.metadata.create_all(bind=engine)
+
 
 @app.get("/")
 def read_root():
