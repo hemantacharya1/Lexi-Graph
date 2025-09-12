@@ -6,10 +6,10 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-
-from . import models, schemas
-from .config import settings
-from .database import get_db
+import models.user as user_model
+import schemas.user as user_schemas 
+from config import settings
+from database import get_db
 
 # --- Password Hashing Setup ---
 # We use CryptContext to handle hashing. 'bcrypt' is the chosen algorithm.
@@ -47,7 +47,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> models.user.User:
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> user_model.User:
     """
     Dependency to get the current user from a JWT token.
     This is the core of our protection mechanism.
@@ -62,11 +62,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
-        token_data = schemas.user.TokenData(email=email)
+        token_data = user_schemas.TokenData(email=email)
     except JWTError:
         raise credentials_exception
-    
-    user = db.query(models.user.User).filter(models.user.User.email == token_data.email).first()
+
+    user = db.query(user_model.User).filter(user_model.User.email == token_data.email).first()
     if user is None:
         raise credentials_exception
     return user
