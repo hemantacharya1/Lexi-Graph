@@ -5,3 +5,6 @@ psycopg2-binary
 redis
 pydantic-settings
 alembic
+passlib[bcrypt]
+python-jose[cryptography]
+pydantic[email]

@@ -1,0 +1,32 @@
+from sqlalchemy.orm import Session
+from .. import models, schemas, security
+
+def get_user_by_email(db: Session, email: str) -> models.user.User | None:
+    """Fetches a user by their email address."""
+    return db.query(models.user.User).filter(models.user.User.email == email).first()
+
+def create_user(db: Session, user: schemas.user.UserCreate) -> models.user.User:
+    """Creates a new user and a corresponding account."""
+    # First, check if a user with this email already exists
+    db_user = get_user_by_email(db, email=user.email)
+    if db_user:
+        raise ValueError("Email already registered")
+
+    # Create a new Account for the user
+    new_account = models.account.Account(name=user.law_firm_name)
+    db.add(new_account)
+    db.flush() # Flush to get the new_account.id before committing
+
+    # Hash the password
+    hashed_password = security.get_password_hash(user.password)
+    
+    # Create the new User
+    db_user = models.user.User(
+        email=user.email,
+        hashed_password=hashed_password,
+        account_id=new_account.id # <--- The link is made here
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user

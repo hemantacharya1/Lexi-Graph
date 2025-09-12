@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Redis URL
     REDIS_HOST: str = os.getenv("REDIS_HOST", "redis")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", 6379))
+    SECRET_KEY: str = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 
     class Config:
         # This tells pydantic-settings to load variables from a .env file if present

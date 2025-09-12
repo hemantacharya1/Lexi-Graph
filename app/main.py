@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import SessionLocal, engine,Base, get_db
 from config import settings
+from routers import user, auth, case 
 
 
 app = FastAPI(
@@ -16,6 +17,11 @@ app = FastAPI(
 def startup():
     from models import account, user, case, document
     Base.metadata.create_all(bind=engine)
+
+app.include_router(user.router)
+app.include_router(auth.router)
+app.include_router(case.router)
+
 
 
 @app.get("/")
