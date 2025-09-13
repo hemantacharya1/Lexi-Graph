@@ -1,3 +1,6 @@
+# --- ADD THESE TWO LINES AT THE VERY TOP ---
+--index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://pypi.org/simple
 fastapi
 uvicorn[standard]
 sqlalchemy
@@ -9,3 +12,10 @@ passlib[bcrypt]
 python-jose[cryptography]
 pydantic[email]
 python-multipart
+celery[redis]
+unstructured[local-inference]
+langchain
+sentence-transformers
+chromadb-client
+python-magic
+pypdf

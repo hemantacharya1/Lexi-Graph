@@ -6,19 +6,29 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./app:/app  # Mounts our local 'app' folder into the container for live reloading
+      - ./src:/app  # Mounts our local 'app' folder into the container for live reloading
+      - document_storage:/storage # Persistent storage for uploaded documents
     env_file:
       - .env
-    depends_on:
-      - db
-      - redis
+    depends_on: [db, redis]
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+  
+  # 1A. Celery Worker for background processing
+  worker:
+    build: .
+    volumes:
+      - ./src:/app
+      - document_storage:/storage 
+    env_file:
+      - .env
+    depends_on: [redis, db, chroma]
+    command: celery -A celery_app.celery_worker worker -l info -c 4
 
   # 2. Relational Database: PostgreSQL
   db:
     image: postgres:15-alpine
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
@@ -37,6 +47,7 @@ services:
       - "8001:8000" # Mapped to 8001 on host to avoid conflict with our API on 8000
     volumes:
       - chroma_data:/chroma/.chroma/index
+      - ./chroma-config.yaml:/config.yaml # Custom config file
 
   # 5. Graph Database: Neo4j
   # neo4j:
@@ -63,3 +74,4 @@ volumes:
   chroma_data:
   neo4j_data:
   # ollama_data:
+  document_storage:

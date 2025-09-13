@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import SessionLocal, engine,Base, get_db
 from config import settings
-from routers import user, auth, case 
+from routers import user, auth, case, document
 
 
 app = FastAPI(
@@ -21,6 +21,7 @@ def startup():
 app.include_router(user.router)
 app.include_router(auth.router)
 app.include_router(case.router)
+app.include_router(document.router)
 
 
 

@@ -1,0 +1,3 @@
+# This tells the ChromaDB server that it is allowed to be reset.
+# This is disabled by default for safety in recent versions.
+allow_reset: true

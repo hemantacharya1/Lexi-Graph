@@ -11,7 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code to the working directory
-COPY ./app /app
+COPY ./src .
 
 # The command to run the application
 # Uvicorn is the ASGI server that will run FastAPI
