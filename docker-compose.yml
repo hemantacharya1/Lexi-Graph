@@ -47,7 +47,7 @@ services:
       - "8001:8000" # Mapped to 8001 on host to avoid conflict with our API on 8000
     volumes:
       - chroma_data:/chroma/.chroma/index
-      - ./chroma-config.yaml:/config.yaml # Custom config file
+      - ./chroma-config.yaml:/chroma/config/chroma-config.yaml
 
   # 5. Graph Database: Neo4j
   # neo4j:
