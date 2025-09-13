@@ -19,23 +19,23 @@ def prepare_and_process_document(document_id: str):
     """
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     from unstructured.partition.auto import partition
-
+    print("system 1 started")
     db = _get_db()
     try:
         # 1. Update status to PROCESSING
-        db.query(document_model.Document).filter(document_model.Document.id == document_id).update(
+        db.query(document_model.LegalDocument).filter(document_model.LegalDocument.id == document_id).update(
             {"status": "PROCESSING", "status_message": "Parsing and chunking document."}
         )
         db.commit()
 
-        document = db.query(document_model.Document).filter(document_model.Document.id == document_id).first()
+        document = db.query(document_model.LegalDocument).filter(document_model.LegalDocument.id == document_id).first()
         if not document:
             raise FileNotFoundError("Document not found in database.")
 
         # 2. Parse document using unstructured
         elements = partition(filename=document.file_path)
         full_text = "\n\n".join([el.text for el in elements])
-
+        print(full_text)
         # 3. Chunk the text
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
@@ -43,11 +43,12 @@ def prepare_and_process_document(document_id: str):
             length_function=len,
         )
         chunks = text_splitter.split_text(full_text)
-
+        print(f"Total chunks created: {len(chunks)}")
+        print(chunks)
         # 4. Create batches of chunks
         batch_size = 128
         chunk_batches = [chunks[i:i + batch_size] for i in range(0, len(chunks), batch_size)]
-
+        print(f"Total batches created: {len(chunk_batches)}")
         # 5. Prepare the chord
         # Create a group of child tasks to run in parallel
         child_tasks_group = [
@@ -64,8 +65,10 @@ def prepare_and_process_document(document_id: str):
         # Execute the chord
         chord(child_tasks_group)(callback_task)
 
+        print("system 1 finished")
+
     except Exception as e:
-        db.query(document_model.Document).filter(document_model.Document.id == document_id).update(
+        db.query(document_model.LegalDocument).filter(document_model.LegalDocument.id == document_id).update(
             {"status": "FAILED", "status_message": f"Error during preparation: {str(e)}"}
         )
         db.commit()
@@ -80,7 +83,7 @@ def embed_and_store_batch(batch_of_chunks: list[str], document_id: str, case_id:
     """
     import chromadb
     from sentence_transformers import SentenceTransformer
-
+    print("system 2 started")
     try:
         # 1. Initialize models and clients
         embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
@@ -105,6 +108,7 @@ def embed_and_store_batch(batch_of_chunks: list[str], document_id: str, case_id:
             metadatas=metadata,
             ids=ids
         )
+        print("system 2 finished")
     except Exception as e:
         # In a real app, you'd want more robust error handling, maybe a retry mechanism.
         print(f"Failed to process batch for document {document_id}. Error: {e}")
@@ -120,7 +124,7 @@ def mark_document_as_completed(document_id: str):
     """
     db = _get_db()
     try:
-        db.query(document_model.Document).filter(document_model.Document.id == document_id).update(
+        db.query(document_model.LegalDocument).filter(document_model.LegalDocument.id == document_id).update(
             {"status": "COMPLETED", "status_message": "Successfully indexed.", "processed_at": datetime.now(datetime.UTC)}
         )
         db.commit()

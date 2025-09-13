@@ -11,8 +11,7 @@ class Account(Base):
     name = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    # --- Relationships ---
-    # One Account has many Users
+
+    # --- Relationships (UPDATED) ---
     users = relationship("User", back_populates="account", cascade="all, delete-orphan")
-    # One Account has many Cases
-    cases = relationship("Case", back_populates="account", cascade="all, delete-orphan")
+    cases = relationship("LegalCase", back_populates="account", cascade="all, delete-orphan")

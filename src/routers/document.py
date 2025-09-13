@@ -38,7 +38,7 @@ def upload_document_to_case(
         )
     finally:
         file.file.close() # Ensure the file is closed
-
+    print("print happened")
     # 3. Dispatch the background processing task
     prepare_and_process_document.delay(str(db_document.id))
 

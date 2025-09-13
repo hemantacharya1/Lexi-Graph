@@ -10,7 +10,7 @@ import uuid
 from uuid import UUID
 
 
-def create_document_record(db: Session, case_id: UUID, user_id: UUID, file: UploadFile) -> document_model.Document:
+def create_document_record(db: Session, case_id: UUID, user_id: UUID, file: UploadFile) -> document_model.LegalDocument:
     """
     Creates a document record in the database and saves the file to storage.
     """
@@ -29,7 +29,7 @@ def create_document_record(db: Session, case_id: UUID, user_id: UUID, file: Uplo
         shutil.copyfileobj(file.file, buffer)
 
     # 3. Create the database record
-    db_document = document_model.Document(
+    db_document = document_model.LegalDocument(
         id=document_id,
         file_name=file.filename,
         file_path=file_path,

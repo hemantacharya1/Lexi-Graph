@@ -17,4 +17,4 @@ class User(Base):
     # Many Users belong to one Account
     account = relationship("Account", back_populates="users")
     # One User can upload many Documents
-    documents = relationship("Document", back_populates="uploaded_by")
+    documents = relationship("LegalDocument", back_populates="uploaded_by")
