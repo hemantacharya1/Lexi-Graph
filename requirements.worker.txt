@@ -1,21 +1,17 @@
-# --- ADD THESE TWO LINES AT THE VERY TOP ---
+# Torch CPU wheels (smaller than full CUDA builds)
 --index-url https://download.pytorch.org/whl/cpu
 --extra-index-url https://pypi.org/simple
-fastapi
-uvicorn[standard]
+
+redis
 sqlalchemy
 psycopg2-binary
-redis
 pydantic-settings
 alembic
-passlib[bcrypt]
-python-jose[cryptography]
-pydantic[email]
-python-multipart
-celery[redis]
+
+# Parsing + embeddings
 unstructured[local-inference]
-langchain
 sentence-transformers
-chromadb-client
+
+# Only worker needs this (not API)
 python-magic
-pypdf
+celery[redis]

@@ -1,0 +1,25 @@
+# ---- Worker image (heavy) ----
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# System deps needed for parsing
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    tesseract-ocr \
+    poppler-utils \
+    libreoffice \
+    pandoc \
+    ffmpeg \
+    libgl1 \
+    libglib2.0-0 \
+    libmagic1 \
+    ghostscript \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.worker.txt .
+RUN pip install --no-cache-dir -r requirements.worker.txt
+
+COPY ./src .
+
+CMD ["celery", "-A", "celery_app.celery_worker", "worker", "-l", "info", "-c", "4"]

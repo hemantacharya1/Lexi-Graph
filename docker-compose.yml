@@ -1,30 +1,29 @@
 version: '3.8'
 services:
-  # 1. Our FastAPI Backend API
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     ports:
       - "8000:8000"
     volumes:
-      - ./src:/app  # Mounts our local 'app' folder into the container for live reloading
-      - document_storage:/storage # Persistent storage for uploaded documents
+      - ./src:/app
+      - document_storage:/storage
     env_file:
       - .env
     depends_on: [db, redis]
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-  
-  # 1A. Celery Worker for background processing
+
   worker:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
     volumes:
       - ./src:/app
-      - document_storage:/storage 
+      - document_storage:/storage
     env_file:
       - .env
     depends_on: [redis, db, chroma]
-    command: celery -A celery_app.celery_worker worker -l info -c 4
 
-  # 2. Relational Database: PostgreSQL
   db:
     image: postgres:15-alpine
     ports:
@@ -34,44 +33,104 @@ services:
     env_file:
       - .env
 
-  # 3. Task Broker: Redis
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
 
-  # 4. Vector Database: ChromaDB
   chroma:
     image: chromadb/chroma
     ports:
-      - "8001:8000" # Mapped to 8001 on host to avoid conflict with our API on 8000
+      - "8001:8000"
     volumes:
       - chroma_data:/chroma/.chroma/index
       - ./chroma-config.yaml:/chroma/config/chroma-config.yaml
 
-  # 5. Graph Database: Neo4j
-  # neo4j:
-  #   image: neo4j:5
-  #   ports:
-  #     - "7474:7474" # Neo4j Browser UI
-  #     - "7687:7687" # Bolt protocol for drivers
-  #   volumes:
-  #     - neo4j_data:/data
-  #   environment:
-  #     - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
-
-  # 6. Local LLM Server: Ollama
-  # ollama:
-  #   image: ollama/ollama
-  #   ports:
-  #     - "11434:11434"
-  #   volumes:
-  #     - ollama_data:/root/.ollama
-
-# Define named volumes for persistent data
 volumes:
   postgres_data:
   chroma_data:
-  neo4j_data:
-  # ollama_data:
   document_storage:
+
+
+
+
+
+
+
+# version: '3.8'
+# services:
+#   # 1. Our FastAPI Backend API
+#   api:
+#     build: .
+#     ports:
+#       - "8000:8000"
+#     volumes:
+#       - ./src:/app  # Mounts our local 'app' folder into the container for live reloading
+#       - document_storage:/storage # Persistent storage for uploaded documents
+#     env_file:
+#       - .env
+#     depends_on: [db, redis]
+#     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+  
+#   # 1A. Celery Worker for background processing
+#   worker:
+#     build: .
+#     volumes:
+#       - ./src:/app
+#       - document_storage:/storage 
+#     env_file:
+#       - .env
+#     depends_on: [redis, db, chroma]
+#     command: celery -A celery_app.celery_worker worker -l info -c 4
+
+#   # 2. Relational Database: PostgreSQL
+#   db:
+#     image: postgres:15-alpine
+#     ports:
+#       - "5433:5432"
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data/
+#     env_file:
+#       - .env
+
+#   # 3. Task Broker: Redis
+#   redis:
+#     image: redis:7-alpine
+#     ports:
+#       - "6379:6379"
+
+#   # 4. Vector Database: ChromaDB
+#   chroma:
+#     image: chromadb/chroma
+#     ports:
+#       - "8001:8000" # Mapped to 8001 on host to avoid conflict with our API on 8000
+#     volumes:
+#       - chroma_data:/chroma/.chroma/index
+#       - ./chroma-config.yaml:/chroma/config/chroma-config.yaml
+
+#   # 5. Graph Database: Neo4j
+#   # neo4j:
+#   #   image: neo4j:5
+#   #   ports:
+#   #     - "7474:7474" # Neo4j Browser UI
+#   #     - "7687:7687" # Bolt protocol for drivers
+#   #   volumes:
+#   #     - neo4j_data:/data
+#   #   environment:
+#   #     - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+
+#   # 6. Local LLM Server: Ollama
+#   # ollama:
+#   #   image: ollama/ollama
+#   #   ports:
+#   #     - "11434:11434"
+#   #   volumes:
+#   #     - ollama_data:/root/.ollama
+
+# # Define named volumes for persistent data
+# volumes:
+#   postgres_data:
+#   chroma_data:
+#   neo4j_data:
+#   # ollama_data:
+#   document_storage:

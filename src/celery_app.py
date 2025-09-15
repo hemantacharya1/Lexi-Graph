@@ -8,9 +8,10 @@ celery_worker = Celery(
     "lexi_graph_worker",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["tasks"] # List of modules to import when the worker starts.
+    # include=["tasks"] # List of modules to import when the worker starts.
 )
 
 celery_worker.conf.update(
     task_track_started=True,
+    imports=("tasks",),
 )
