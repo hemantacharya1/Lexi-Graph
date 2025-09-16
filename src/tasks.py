@@ -151,7 +151,7 @@ def embed_and_store_batch(batch_of_chunk_objects: list[dict], document_id: str, 
         raise
 
 @celery_worker.task(name="tasks.mark_document_as_completed")
-def mark_document_as_completed(document_id: str):
+def mark_document_as_completed(*args, document_id: str, **kwargs):
     """
     Callback task: This only runs if all child tasks in the chord succeeded.
     Its only job is to set the final 'COMPLETED' status in the database.
@@ -163,7 +163,7 @@ def mark_document_as_completed(document_id: str):
         if document:
             document.status = "COMPLETED"
             document.status_message = "Successfully indexed for searching."
-            document.processed_at = datetime.now(datetime.UTC)
+            document.processed_at = datetime.now(datetime.utcnow().astimezone().tzinfo)
             db.commit()
             print(f"[Callback Task] Final status 'COMPLETED' set for document: {document.file_name}")
     except Exception as e:

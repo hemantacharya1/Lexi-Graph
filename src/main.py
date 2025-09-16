@@ -58,3 +58,19 @@ def health_check(db: Session = Depends(get_db)):
         raise HTTPException(status_code=503, detail="Could not connect to Redis.")
 
     return status
+
+@app.get("/collections")
+def list_collections():
+    import chromadb
+    from chromadb.config import Settings
+
+    client = chromadb.HttpClient(
+        host="chroma",   # docker-compose service name
+        port=8000,
+        settings=Settings(anonymized_telemetry=False, allow_reset=True)
+    )
+    try:
+        collections = client.list_collections()
+        return {"collections": [c.name for c in collections]}
+    except Exception as e:
+        return {"error": str(e)}
