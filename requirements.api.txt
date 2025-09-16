@@ -11,3 +11,4 @@ pydantic[email]
 python-multipart
 celery[redis]
 chromadb-client
+langchain

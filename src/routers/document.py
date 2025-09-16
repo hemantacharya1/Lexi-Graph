@@ -7,7 +7,7 @@ import service.document as document_service
 import service.case as case_service
 from database import get_db
 import security
-from tasks import process_document
+from tasks import prepare_and_process_document
 
 router = APIRouter(
     prefix="/documents",
@@ -40,6 +40,6 @@ def upload_document_to_case(
         file.file.close() # Ensure the file is closed
     print("print happened")
     # 3. Dispatch the background processing task
-    process_document.delay(str(db_document.id))
+    prepare_and_process_document.delay(str(db_document.id))
 
     return db_document
