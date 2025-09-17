@@ -172,3 +172,25 @@ def mark_document_as_completed(*args, document_id: str, **kwargs):
         db.rollback()
     finally:
         db.close()
+
+
+@celery_worker.task(name="tasks.embed_query_task")
+def embed_query_task(query_text: str) -> list[float]:
+    """
+    A simple, fast task that takes a text query and returns its embedding.
+    This is called synchronously by the API to leverage the worker's AI models.
+    """
+    from sentence_transformers import SentenceTransformer
+    
+    print(f"[Query Embed Task] Received query: '{query_text}'")
+    try:
+        # This model is pre-loaded/cached in the worker, so instantiation is fast.
+        embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
+        embedding = embedding_model.encode(query_text).tolist()
+        print("[Query Embed Task] Successfully generated embedding.")
+        return embedding
+    except Exception as e:
+        print(f"[Query Embed Task] !!! FAILED to generate embedding for query. Error: {e}")
+        traceback.print_exc()
+        # Re-raise the exception so the API knows the task failed.
+        raise

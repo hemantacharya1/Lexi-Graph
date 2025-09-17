@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # JWT Secret Key
     SECRET_KEY: str = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 
+    # --- ADD THIS NEW SETTING ---
+    # Google API Key for Gemini
+    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY")
+
     # --- ADD THESE NEW SETTINGS ---
     # ChromaDB Settings
     CHROMA_HOST: str = "chroma"
