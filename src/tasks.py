@@ -16,11 +16,11 @@ def _get_db():
 def prepare_and_process_document(document_id: str):
     """
     Parent task: Orchestrates the entire document processing pipeline.
-    It is designed to be fast and delegate the heavy work to child tasks.
+    This version implements a production-grade HYBRID chunking strategy.
     """
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
     from unstructured.partition.auto import partition
     from unstructured.cleaners.core import clean
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
 
     print(f"\n[Parent Task] Starting preparation for document_id: {document_id}")
     db = _get_db()
@@ -29,33 +29,85 @@ def prepare_and_process_document(document_id: str):
         if not document:
             print(f"[Parent Task] ERROR: Document {document_id} not found.")
             return
-        
+
+        # (The deletion logic we added previously should remain here)
+        # ...
+
         document.status = "PROCESSING"
         document.status_message = "Step 1/3: Parsing document content and metadata."
         db.commit()
 
-        # Unstructured handles different file types (PDF, DOCX, etc.) automatically.
         print(f"[Parent Task] Parsing file: {document.file_path}")
         elements = partition(filename=document.file_path)
 
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+        # --- START: Hybrid Chunking Logic ---
+
+        target_chunk_size_chars = 1000
+        # This splitter will ONLY be used for elements that are too large on their own.
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=target_chunk_size_chars,
+            chunk_overlap=150 # Overlap is useful here to connect the split pieces of a large paragraph.
+        )
         
         chunks_with_metadata = []
-        # We loop through each element unstructured found (e.g., a paragraph, a title).
-        for element in elements:
-            text = clean(element.text, extra_whitespace=True)
-            page_number = element.metadata.page_number or "N/A"
-            element_chunks = text_splitter.split_text(text)
+        current_chunk_text = ""
+        current_chunk_page_numbers = set()
 
-            for chunk_text in element_chunks:
-                chunk_object = {
-                    "text": chunk_text,
-                    "page_number": page_number,
+        for el in elements:
+            element_text = clean(el.text, extra_whitespace=True)
+            page_number = el.metadata.page_number or "N/A"
+
+            # Rule 2: Handle elements that are larger than our target size on their own.
+            if len(element_text) > target_chunk_size_chars:
+                # First, if we have a chunk we were building, save it.
+                if current_chunk_text:
+                    chunks_with_metadata.append({
+                        "text": current_chunk_text,
+                        "page_number": sorted(list(current_chunk_page_numbers))[0],
+                        "file_name": document.file_name
+                    })
+                    current_chunk_text = ""
+                    current_chunk_page_numbers = set()
+
+                # Now, split the oversized element using our fallback Recursive Splitter.
+                sub_chunks = text_splitter.split_text(element_text)
+                for sub_chunk in sub_chunks:
+                    chunks_with_metadata.append({
+                        "text": sub_chunk,
+                        "page_number": page_number, # All sub-chunks come from the same page
+                        "file_name": document.file_name
+                    })
+                continue # Move to the next element
+
+            # Rule 1: Handle normal-sized elements with the grouping strategy.
+            if len(current_chunk_text) + len(element_text) > target_chunk_size_chars:
+                # If adding the new element would exceed the size, finalize the current chunk.
+                chunks_with_metadata.append({
+                    "text": current_chunk_text,
+                    "page_number": sorted(list(current_chunk_page_numbers))[0],
                     "file_name": document.file_name
-                }
-                chunks_with_metadata.append(chunk_object)
+                })
+                # And start a new chunk with the current element.
+                current_chunk_text = element_text
+                current_chunk_page_numbers = {page_number}
+            else:
+                # Otherwise, append the element's text to the current chunk.
+                current_chunk_text += f"\n\n{element_text}"
+                current_chunk_page_numbers.add(page_number)
+
+        # After the loop, add the last chunk being built.
+        if current_chunk_text:
+            chunks_with_metadata.append({
+                "text": current_chunk_text,
+                "page_number": sorted(list(current_chunk_page_numbers))[0],
+                "file_name": document.file_name
+            })
+            
+        # --- END: Hybrid Chunking Logic ---
+
+        print(f"[Parent Task] Hybrid chunking complete. Total chunks: {len(chunks_with_metadata)}")
         
-        print(f"[Parent Task] Chunking complete. Total chunks with metadata: {len(chunks_with_metadata)}")
+        # ... (The rest of the function for batching and dispatching the chord remains exactly the same) ...
         if not chunks_with_metadata:
             document.status = "FAILED"
             document.status_message = "No content found to process."
@@ -63,7 +115,7 @@ def prepare_and_process_document(document_id: str):
             print(f"[Parent Task] ERROR: No content extracted from document {document_id}.")
             return
         
-        batch_size = 128  # This is a good default, not too large or small.
+        batch_size = 128
         chunk_batches = [chunks_with_metadata[i:i + batch_size] for i in range(0, len(chunks_with_metadata), batch_size)]
         print(f"[Parent Task] Batching complete. Total batches: {len(chunk_batches)}")
 
@@ -75,7 +127,6 @@ def prepare_and_process_document(document_id: str):
             for batch in chunk_batches
         ]
         
-        # The 'callback' is the single task that will run only after ALL child tasks succeed.
         callback_task = mark_document_as_completed.s(document_id=str(document.id))
 
         print(f"[Parent Task] Dispatching chord with {len(child_tasks_group)} child tasks.")
@@ -84,8 +135,7 @@ def prepare_and_process_document(document_id: str):
     except Exception as e:
         print(f"[Parent Task] !!! An error occurred: {e}")
         traceback.print_exc()
-        db.rollback() # Undo any partial status changes.
-        # Try to fetch the document again to update its status to FAILED.
+        db.rollback()
         document = db.query(document_model.LegalDocument).filter(document_model.LegalDocument.id == document_id).first()
         if document:
             document.status = "FAILED"
@@ -194,3 +244,47 @@ def embed_query_task(query_text: str) -> list[float]:
         traceback.print_exc()
         # Re-raise the exception so the API knows the task failed.
         raise
+
+@celery_worker.task(name="tasks.rerank_documents_task")
+def rerank_documents_task(query: str, chunks: list[dict]) -> list[dict]:
+    """
+    Takes a query and a list of candidate document chunks and re-ranks them for relevance.
+    This uses a specialized Cross-Encoder model, which is much more accurate for this task
+    than a standard embedding model.
+    """
+    from sentence_transformers.cross_encoder import CrossEncoder
+
+    print(f"[Re-rank Task] Received {len(chunks)} chunks to re-rank for query: '{query}'")
+    if not chunks:
+        return []
+
+    try:
+        # Load the pre-downloaded Cross-Encoder model.
+        # This model is optimized for semantic relevance ranking.
+        cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+
+        # The Cross-Encoder needs pairs of (query, chunk_text) to compare.
+        model_input_pairs = [[query, chunk['absolute_text']] for chunk in chunks]
+
+        # Get the relevance scores. This is the core computation.
+        scores = cross_encoder.predict(model_input_pairs)
+
+        # Combine the original chunks with their new relevance scores.
+        for chunk, score in zip(chunks, scores):
+            # The corrected line
+            chunk['relevance_score'] = float(score)
+
+        # Sort the chunks in descending order based on the new score.
+        # The most relevant chunks will now be at the top of the list.
+        reranked_chunks = sorted(chunks, key=lambda x: x['relevance_score'], reverse=True)
+
+        print("[Re-rank Task] Successfully re-ranked documents.")
+        # Return only the top 5 most relevant chunks for the final context.
+        return reranked_chunks[:5]
+
+    except Exception as e:
+        print(f"[Re-rank Task] !!! FAILED to re-rank documents. Error: {e}")
+        traceback.print_exc()
+        # Fallback: If re-ranking fails for any reason, return the original top 5 chunks.
+        # This makes the system resilient to errors in the re-ranking step.
+        return chunks[:5]

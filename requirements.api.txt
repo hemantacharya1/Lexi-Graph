@@ -13,3 +13,4 @@ celery[redis]
 chromadb-client
 langchain
 langchain-google-genai
+rank-bm25
