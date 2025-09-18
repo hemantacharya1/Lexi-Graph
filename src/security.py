@@ -21,7 +21,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # In a real app, load this from environment variables. For now, we'll add it to config.
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
 # --- OAuth2 Scheme ---
 # This tells FastAPI which URL to use to get the token.

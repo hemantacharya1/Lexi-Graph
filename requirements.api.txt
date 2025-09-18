@@ -14,3 +14,4 @@ chromadb-client
 langchain
 langchain-google-genai
 rank-bm25
+httpx

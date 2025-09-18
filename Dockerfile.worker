@@ -22,6 +22,13 @@ RUN pip install --no-cache-dir -r requirements.worker.txt
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 RUN python -c "from sentence_transformers.cross_encoder import CrossEncoder; CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
 
+# --- CHANGE 1: COPY the new startup script into the image ---
+COPY worker_startup.sh .
+
+# --- CHANGE 2: Make the script executable ---
+# The container needs permission to run this file.
+RUN chmod +x worker_startup.sh
+
 COPY ./src .
 
-CMD ["celery", "-A", "celery_app.celery_worker", "worker", "-l", "info", "-c", "4"]
+CMD ["./worker_startup.sh"]
