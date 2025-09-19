@@ -39,17 +39,14 @@ def health_check(db: Session = Depends(get_db)):
     Verifies connection to PostgreSQL and Redis.
     """
     status = {"api": "ok", "postgres": "error", "redis": "error"}
-
-    # Check PostgreSQL connection
+    
     try:
         db.execute(text("SELECT 1"))
         status["postgres"] = "ok"
     except Exception as e:
         print(f"PostgreSQL connection failed: {e}")
-        # In a real app, you would log this error properly
         raise HTTPException(status_code=503, detail="Could not connect to the database.")
 
-    # Check Redis connection
     try:
         r = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True)
         r.ping()
@@ -66,7 +63,7 @@ def list_collections():
     from chromadb.config import Settings
 
     client = chromadb.HttpClient(
-        host="chroma",   # docker-compose service name
+        host="chroma",  
         port=8000,
         settings=Settings(anonymized_telemetry=False, allow_reset=True)
     )

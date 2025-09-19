@@ -1,5 +1,3 @@
-# Create new file: src/worker_api.py
-
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Dict
@@ -8,21 +6,15 @@ from sentence_transformers import SentenceTransformer
 from sentence_transformers.cross_encoder import CrossEncoder
 from config import settings
 
-# --- 1. Define Global Variables for Models ---
-# We will load our models into these variables during startup.
-# This is a crucial performance optimization: it ensures we don't reload the models
-# from disk on every single API request.
 embedding_model = None
 rerank_model = None
 
-# --- 2. Create the FastAPI Application ---
 app = FastAPI(
     title="Lexi-Graph ML Inference API",
     description="Internal API for serving ML models for the Lexi-Graph application.",
     version="0.1.0",
 )
 
-# --- 3. Define the "Warm-Up" Function ---
 @app.on_event("startup")
 def startup_event():
     """
@@ -42,8 +34,6 @@ def startup_event():
     
     print("--- AI models are warm and ready to serve requests. ---")
 
-# --- 4. Define Request and Response Models (Pydantic) ---
-# This ensures our API has clear, validated data contracts.
 
 class EmbedRequest(BaseModel):
     query_text: str
@@ -59,8 +49,6 @@ class RerankRequest(BaseModel):
 class RerankResponse(RerankChunk):
     relevance_score: float
 
-# --- 5. Define the API Endpoints ---
-
 @app.post("/embed_query", response_model=List[float])
 def embed_query(request: EmbedRequest):
     """
@@ -70,8 +58,6 @@ def embed_query(request: EmbedRequest):
     if embedding_model is None:
         return {"error": "Embedding model not loaded"}, 503
 
-    # The .tolist() is essential to convert the NumPy array into a
-    # standard Python list that is JSON serializable.
     embedding = embedding_model.encode(request.query_text).tolist()
     return embedding
 
@@ -85,14 +71,9 @@ def rerank_documents(request: RerankRequest):
     if rerank_model is None:
         return {"error": "Re-rank model not loaded"}, 503
 
-    # The Cross-Encoder expects a list of [query, passage] pairs.
     model_input_pairs = [[request.query, chunk.absolute_text] for chunk in request.chunks]
-    
-    # Predict the relevance scores for each pair.
+
     scores = rerank_model.predict(model_input_pairs)
-    
-    # --- THIS IS THE CORRECTED LOGIC ---
-    # We will build a new list of response objects instead of trying to modify the input.
     
     # 1. Create a new list to hold the results.
     scored_chunks = []
@@ -105,12 +86,8 @@ def rerank_documents(request: RerankRequest):
             "relevance_score": float(score) # Cast to float to ensure JSON serializability
         })
         
-    # 3. Sort the new list of dictionaries by their relevance score in descending order.
     reranked_chunks = sorted(scored_chunks, key=lambda x: x['relevance_score'], reverse=True)
     
-    # 4. FastAPI will automatically validate that this list of dictionaries conforms
-    #    to our `RerankResponse` model before sending it back to the client.
-    #    We return the top 5.
     return reranked_chunks[:5]
 
 

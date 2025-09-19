@@ -5,7 +5,6 @@ from celery import chord
 from celery_app import celery_worker
 from database import SessionLocal
 from config import settings
-# Use the correct model names we defined
 import models.document as document_model
 
 def _get_db():
@@ -29,18 +28,12 @@ def prepare_and_process_document(document_id: str):
         if not document:
             print(f"[Parent Task] ERROR: Document {document_id} not found.")
             return
-
-        # (The deletion logic we added previously should remain here)
-        # ...
-
         document.status = "PROCESSING"
         document.status_message = "Step 1/3: Parsing document content and metadata."
         db.commit()
 
         print(f"[Parent Task] Parsing file: {document.file_path}")
         elements = partition(filename=document.file_path)
-
-        # --- START: Hybrid Chunking Logic ---
 
         target_chunk_size_chars = 1000
         # This splitter will ONLY be used for elements that are too large on their own.
@@ -74,7 +67,7 @@ def prepare_and_process_document(document_id: str):
                 for sub_chunk in sub_chunks:
                     chunks_with_metadata.append({
                         "text": sub_chunk,
-                        "page_number": page_number, # All sub-chunks come from the same page
+                        "page_number": page_number,
                         "file_name": document.file_name
                     })
                 continue # Move to the next element
@@ -103,11 +96,9 @@ def prepare_and_process_document(document_id: str):
                 "file_name": document.file_name
             })
             
-        # --- END: Hybrid Chunking Logic ---
 
         print(f"[Parent Task] Hybrid chunking complete. Total chunks: {len(chunks_with_metadata)}")
         
-        # ... (The rest of the function for batching and dispatching the chord remains exactly the same) ...
         if not chunks_with_metadata:
             document.status = "FAILED"
             document.status_message = "No content found to process."
@@ -234,7 +225,6 @@ def embed_query_task(query_text: str) -> list[float]:
     
     print(f"[Query Embed Task] Received query: '{query_text}'")
     try:
-        # This model is pre-loaded/cached in the worker, so instantiation is fast.
         embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
         embedding = embedding_model.encode(query_text).tolist()
         print("[Query Embed Task] Successfully generated embedding.")
@@ -242,7 +232,6 @@ def embed_query_task(query_text: str) -> list[float]:
     except Exception as e:
         print(f"[Query Embed Task] !!! FAILED to generate embedding for query. Error: {e}")
         traceback.print_exc()
-        # Re-raise the exception so the API knows the task failed.
         raise
 
 @celery_worker.task(name="tasks.rerank_documents_task")
@@ -259,32 +248,18 @@ def rerank_documents_task(query: str, chunks: list[dict]) -> list[dict]:
         return []
 
     try:
-        # Load the pre-downloaded Cross-Encoder model.
-        # This model is optimized for semantic relevance ranking.
         cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
-
-        # The Cross-Encoder needs pairs of (query, chunk_text) to compare.
         model_input_pairs = [[query, chunk['absolute_text']] for chunk in chunks]
-
-        # Get the relevance scores. This is the core computation.
         scores = cross_encoder.predict(model_input_pairs)
-
-        # Combine the original chunks with their new relevance scores.
         for chunk, score in zip(chunks, scores):
-            # The corrected line
             chunk['relevance_score'] = float(score)
 
-        # Sort the chunks in descending order based on the new score.
-        # The most relevant chunks will now be at the top of the list.
         reranked_chunks = sorted(chunks, key=lambda x: x['relevance_score'], reverse=True)
-
         print("[Re-rank Task] Successfully re-ranked documents.")
-        # Return only the top 5 most relevant chunks for the final context.
+
         return reranked_chunks[:5]
 
     except Exception as e:
         print(f"[Re-rank Task] !!! FAILED to re-rank documents. Error: {e}")
         traceback.print_exc()
-        # Fallback: If re-ranking fails for any reason, return the original top 5 chunks.
-        # This makes the system resilient to errors in the re-ranking step.
         return chunks[:5]

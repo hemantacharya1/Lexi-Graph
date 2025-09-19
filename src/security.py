@@ -12,13 +12,9 @@ from config import settings
 from database import get_db
 
 # --- Password Hashing Setup ---
-# We use CryptContext to handle hashing. 'bcrypt' is the chosen algorithm.
-# 'deprecated="auto"' means it will automatically handle upgrading hashes if we change algorithms later.
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # --- JWT Configuration ---
-# This is a secret key to sign our tokens. KEEP THIS SECRET.
-# In a real app, load this from environment variables. For now, we'll add it to config.
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
