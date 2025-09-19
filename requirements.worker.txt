@@ -18,3 +18,5 @@ python-magic
 celery[redis]
 chromadb-client
 
+fastapi
+uvicorn[standard]

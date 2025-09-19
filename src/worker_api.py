@@ -91,15 +91,28 @@ def rerank_documents(request: RerankRequest):
     # Predict the relevance scores for each pair.
     scores = rerank_model.predict(model_input_pairs)
     
-    # Combine the original chunks with their new scores.
-    for chunk, score in zip(request.chunks, scores):
-        chunk.relevance_score = float(score) # Cast to float to ensure JSON serializability
-        
-    # Sort the chunks by their new relevance score in descending order.
-    reranked_chunks = sorted(request.chunks, key=lambda x: x.relevance_score, reverse=True)
+    # --- THIS IS THE CORRECTED LOGIC ---
+    # We will build a new list of response objects instead of trying to modify the input.
     
-    # Return the top 5.
+    # 1. Create a new list to hold the results.
+    scored_chunks = []
+    
+    # 2. Combine the original chunk data with its new score into a new dictionary.
+    for chunk, score in zip(request.chunks, scores):
+        scored_chunks.append({
+            "id": chunk.id,
+            "absolute_text": chunk.absolute_text,
+            "relevance_score": float(score) # Cast to float to ensure JSON serializability
+        })
+        
+    # 3. Sort the new list of dictionaries by their relevance score in descending order.
+    reranked_chunks = sorted(scored_chunks, key=lambda x: x['relevance_score'], reverse=True)
+    
+    # 4. FastAPI will automatically validate that this list of dictionaries conforms
+    #    to our `RerankResponse` model before sending it back to the client.
+    #    We return the top 5.
     return reranked_chunks[:5]
+
 
 @app.get("/health")
 def health_check():

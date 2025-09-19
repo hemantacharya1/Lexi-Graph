@@ -17,4 +17,4 @@ celery -A celery_app.celery_worker worker -l info -c 4 &
 # what our main API service will try to call.
 
 echo "--- Starting FastAPI/Uvicorn server for ML inference..."
-uvicorn worker_api:app --host 0.0.0.0 --port 8001 --workers 1
+uvicorn worker_api:app --host 0.0.0.0 --port 8002 --workers 1

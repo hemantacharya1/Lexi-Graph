@@ -116,7 +116,7 @@ def process_query(case_id: str, query: str) -> QueryResponse:
         # Make a direct HTTP POST request to the worker's internal API.
         # 'worker' is the service name from docker-compose.yml.
         # Port 8001 is what we defined in worker_startup.sh.
-        worker_api_url = "http://worker:8001"
+        worker_api_url = "http://worker:8002"
         with httpx.Client() as client:
             response = client.post(
                 f"{worker_api_url}/embed_query",
@@ -190,20 +190,26 @@ def process_query(case_id: str, query: str) -> QueryResponse:
         if not top_fused_ids:
             return QueryResponse(answer="Could not find any relevant documents after a detailed search.", sources=[])
 
-        candidate_chunks = collection.get(ids=top_fused_ids, include=["metadatas"])['metadatas']
-        
+        candidate_data = collection.get(ids=top_fused_ids, include=["documents"])
+
+        slim_candidates_for_reranking = [
+            {"id": doc_id, "absolute_text": doc_text}
+            for doc_id, doc_text in zip(candidate_data['ids'], candidate_data['documents'])
+        ]
         # --- Timing Step: Re-Ranking ---
         rerank_start = time.time()
         with httpx.Client() as client:
             # We send the query and the slimmed-down candidate chunks to the re-ranker.
             response = client.post(
                 f"{worker_api_url}/rerank_documents",
-                json={"query": query, "chunks": candidate_chunks},
+                json={"query": query, "chunks": slim_candidates_for_reranking},
                 timeout=30.0
             )
             response.raise_for_status()
+            reranked_results = response.json()
             # The response is the final list of top 5 re-ranked chunks.
-            final_chunks = response.json()
+        final_reranked_ids = [chunk['id'] for chunk in reranked_results]
+        final_chunks = collection.get(ids=final_reranked_ids, include=["metadatas"])['metadatas']
         timings['Re-Ranking (Celery Task)'] = time.time() - rerank_start
         # ---
 
